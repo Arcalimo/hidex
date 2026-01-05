@@ -7,5 +7,12 @@
   "action": {
     "default_title": "HideX",
     "default_popup": "src/views/popup/popup.html"
-  }
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "permissions": [
+    "storage",
+    "activeTab"
+  ]
 }

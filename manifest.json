@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "author": "Alberto Server",
   "action": {
-    "default_title": "HideX"
+    "default_title": "HideX",
+    "default_popup": "src/views/popup/popup.html"
   }
 }

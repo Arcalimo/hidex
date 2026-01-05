@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "HideX",
+  "description": "Hide elements you don’t want to see on any site",
+  "version": "0.1.0",
+  "author": "Alberto Server",
+  "action": {
+    "default_title": "HideX"
+  }
+}

@@ -1,4 +1,5 @@
-const OVERLAY_ID = '__hidex-debug-frame__';
+let selectMode = false;
+const OVERLAY_ID = '__hidex-select-frame__';
 
 function enableFrame() {
   if (document.getElementById(OVERLAY_ID)) return;
@@ -25,14 +26,108 @@ function disableFrame() {
   document.getElementById(OVERLAY_ID)?.remove();
 }
 
-function toggleFrame() {
-  const exists = !!document.getElementById(OVERLAY_ID);
-  exists ? disableFrame() : enableFrame();
+function buildSelector(element) {
+
+  if (element.id) return `#${ CSS.escape(element.id) }`;
+
+  const classList = Array.from(element.classList || []).filter(Boolean);
+  if (classList.length) {
+    return `${ element.tagName.toLowerCase() }.${ classList.map(c => CSS.escape(c)).join('.') }`;
+  }
+
+  return element.tagName.toLowerCase();
 }
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg?.type === 'HIDEX_TOGGLE_DEBUG_MODE') {
-    toggleFrame();
-    sendResponse({ ok: true });
+function buildElementData(element) {
+
+  return {
+    tag: element.tagName.toLowerCase(),
+    id: element.id || null,
+    classes: Array.from(element.classList || []),
+    text: (element.innerText || '').trim().slice(0, 100) || null,
+    selector: buildSelector(element),
+    dom: bakeElement(element)
+  };
+}
+
+function computedCssText(el) {
+
+  const computedStyle = getComputedStyle(el);
+  let css = '';
+
+  for (const prop of computedStyle) {
+    css += `${ prop }:${ computedStyle.getPropertyValue(prop) };`;
+  }
+
+  return css;
+}
+
+function bakeElement(el) {
+
+  return {
+    html: el.outerHTML,
+    cssText: computedCssText(el),
+    meta: {
+      tag: el.tagName.toLowerCase(),
+      id: el.id || null,
+      classes: Array.from(el.classList || []),
+      createdAt: Date.now(),
+      url: location.href
+    }
+  };
+}
+
+function onClickCapture(e) {
+  if (!selectMode) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+
+  const element = document.elementFromPoint(e.clientX, e.clientY);
+  if (!element) return;
+
+  if (element.id && element.id.startsWith('__hidex-')) return;
+
+  const data = buildElementData(element);
+  console.log('HideX picked element:', data);
+
+  chrome.storage.local.set({ hidex_last_snapshot: data.dom }).then();
+
+  disableSelectMode();
+}
+
+function enableSelectMode() {
+  if (selectMode) return { ok: true, already: true };
+
+  selectMode = true;
+  enableFrame();
+  document.addEventListener('click', onClickCapture, true);
+
+  return { ok: true, active: true };
+}
+
+function disableSelectMode() {
+  if (!selectMode) return { ok: true, already: true };
+
+  selectMode = false;
+  disableFrame();
+  document.removeEventListener('click', onClickCapture, true);
+
+  return { ok: true, active: false };
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+
+  if (!message?.type) return;
+
+  if (message.type === 'HIDEX_ENTER_SELECT_MODE') {
+    sendResponse(enableSelectMode());
+    return true;
+  }
+
+  if (message.type === 'HIDEX_EXIT_SELECT_MODE') {
+    sendResponse(disableSelectMode());
+    return true;
   }
 });

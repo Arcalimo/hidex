@@ -11,8 +11,28 @@
   "background": {
     "service_worker": "src/background/service-worker.js"
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/content/content-script.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
   "permissions": [
     "storage",
     "activeTab"
-  ]
+  ],
+  "commands": {
+    "toggle-mode": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+H",
+        "mac": "Command+Shift+H"
+      },
+      "description": "Toggle HideX selection mode"
+    }
+  }
 }

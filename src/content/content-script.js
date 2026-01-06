@@ -1,6 +1,35 @@
 let selectMode = false;
 const OVERLAY_ID = '__hidex-select-frame__';
 
+const STORE_KEY = 'hidex_data';
+
+function getHost() {
+  return location.hostname;
+}
+
+function newId() {
+  return `${ Date.now() }_${ Math.random().toString(16).slice(2) }`;
+}
+
+async function loadRulesRoot() {
+  const data = await chrome.storage.local.get(STORE_KEY);
+  return data[STORE_KEY] || { version: 1, hosts: {} };
+}
+
+async function saveRulesRoot(root) {
+  await chrome.storage.local.set({ [STORE_KEY]: root });
+}
+
+function hideBySelector(selector) {
+  try {
+    document.querySelectorAll(selector).forEach(el => {
+      el.style.display = 'none !important';
+    });
+  } catch {
+    // ignore
+  }
+}
+
 function enableFrame() {
   if (document.getElementById(OVERLAY_ID)) return;
 
@@ -77,7 +106,7 @@ function bakeElement(el) {
   };
 }
 
-function onClickCapture(e) {
+async function onClickCapture(e) {
   if (!selectMode) return;
 
   e.preventDefault();
@@ -92,7 +121,28 @@ function onClickCapture(e) {
   const data = buildElementData(element);
   console.log('HideX picked element:', data);
 
-  chrome.storage.local.set({ hidex_last_snapshot: data.dom }).then();
+  const selector = data.selector;
+  hideBySelector(selector);
+
+  const host = getHost();
+  const root = await loadRulesRoot();
+
+  root.hosts[host] = root.hosts[host] || [];
+
+  const exists = root.hosts[host].some(r => r.selector === selector);
+  if (exists) return { ok: true, duplicated: true };
+
+  const rule = {
+    id: newId(),
+    selector,
+    data: data.dom,
+    createdAt: Date.now()
+  };
+
+  root.hosts[host].push(rule);
+  await saveRulesRoot(root);
+
+  console.log('HideX rule saved:', selector);
 
   disableSelectMode();
 }
@@ -115,6 +165,31 @@ function disableSelectMode() {
   document.removeEventListener('click', onClickCapture, true);
 
   return { ok: true, active: false };
+}
+
+applyRulesForHost().then();
+
+async function applyRulesForHost() {
+  const rules = await loadRulesRoot();
+  const hostRules = rules.hosts[getHost()] || [];
+
+  hostRules.forEach(host => hideBySelector(host.selector));
+}
+
+let observer = null;
+startObserver();
+
+function startObserver() {
+  if (observer) return;
+
+  observer = new MutationObserver(() => {
+    applyRulesForHost().then();
+  });
+
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

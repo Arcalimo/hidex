@@ -4,7 +4,7 @@ document.getElementById('toggleMode').addEventListener('click', toggleMode);
 
 document.addEventListener('DOMContentLoaded', async () => {
 
-  const { hidex_last_snapshot } = await chrome.storage.local.get('hidex_last_snapshot');
+  const { hidex_last_snapshot } = await chrome.storage.local.get('hidex_data');
 
   if (hidex_last_snapshot) renderBaked(hidex_last_snapshot);
 
